@@ -1,0 +1,174 @@
+#include <Adafruit_NeoPixel.h>
+#include <Servo.h>
+
+#define UPDATES_PER_SECOND 100
+#define LED_PIN 6
+#define NUM_LEDS 20
+#define GREEN_COLOR 0X00FF00    // GREEN COLOR
+#define RED_COLOR 0XFF0000    // RED COLOR
+
+#define SERVO_PIN_01 2
+#define SERVO_PIN_02 3
+#define SERVO_PIN_03 4
+#define SERVO_PIN_04 5
+#define SERVO_ROTATE 90
+
+const int pingPin = 13;   // Trigger Pin of Ultrasonic Sensor
+const int echoPin = 12;   // Echo Pin of Ultrasonic Sensor
+
+const int SERVO_MIN_ANGLE = 0;    // min angle of the SERVO MOTOR
+const int SERVO_MAX_ANGLE = 90;   // max angle of the SERVO MOTOR
+const int MIN_DISTANCE = 20;    // min distance with the photo
+const int MAX_DISTANCE = 300;
+const int DEATH_ZONE = 30;
+
+int flashCount = 0;   //variable to make count of flash light
+int flashDuration = 500;    // variable to set the time of the flash duration DEATH ZONE
+int pauseDuration = 500;   // variable to set the time of the flash pause whene the entire thing is in DEATH ZONE
+
+const int sensorPin = A0;   // Sensor Pin for the photoresistor
+
+int sensorValue = 0;    // Value for the photoresistor
+int treshold = 200;   // Treshold of the luminosity
+  
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+Servo servo01;
+Servo servo02;
+Servo servo03;
+Servo servo04;
+
+void setup()    //Loop to start the setup of controllers
+{
+  strip.begin();
+  strip.show();
+  strip.setBrightness(50);
+  pinMode(pingPin, OUTPUT);
+  pinMode(echoPin, INPUT); 
+  
+  servo01.attach(SERVO_PIN_01);
+  servo02.attach(SERVO_PIN_02);
+  servo03.attach(SERVO_PIN_03);
+  servo04.attach(SERVO_PIN_04);
+  Serial.begin(9600);
+}
+
+void loop() 
+{
+  sensorValue = analogRead(sensorPin);
+  int photoresistorValue = analogRead(sensorPin);
+  Serial.print("Photoresistor Value: ");
+  Serial.println (photoresistorValue);
+  long duration, inches, cm;
+  pinMode(pingPin, OUTPUT);
+  digitalWrite(pingPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(pingPin, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(pingPin, LOW);
+  pinMode(echoPin, INPUT);
+  duration = pulseIn(echoPin, HIGH);
+  cm = microsecondsToCentimeters(duration);
+  Serial.print(cm);
+  Serial.print("cm");
+  Serial.println();
+  delay(10);
+  
+  
+  cm = constrain(cm, MIN_DISTANCE, MAX_DISTANCE); 
+      
+  if (cm >= MIN_DISTANCE && cm <= MAX_DISTANCE)		//Verify if the user is in a defined range cm
+  {
+    int servoAngle = map(cm, MIN_DISTANCE, MAX_DISTANCE, SERVO_MIN_ANGLE, SERVO_MAX_ANGLE);   // map the distance to the servo angle
+    
+    int redValue = map(cm, MIN_DISTANCE, MAX_DISTANCE, 255, 0);   //map the red value
+    int greenValue= map(cm, MIN_DISTANCE, MAX_DISTANCE, 0,255);   //map the green value
+    sensorValue = analogRead(sensorPin);		// Start to read the sensor
+    int currentAngle01 = servo01.read();
+    int currentAngle02 = servo02.read();
+    int currentAngle03 = servo03.read();
+    int currentAngle04 = servo04.read();
+    
+    if (sensorValue > treshold)		// Start to make the SIGHT MODE
+    {
+    	
+      
+      if (currentAngle01 < servoAngle)		//Rotate the servomotore, as you go towards the object ++
+    	{
+          for (int i = currentAngle01; i <= servoAngle; i++)
+          {
+          	  servo01.write(i);
+              servo02.write(i);
+              servo03.write(i);
+              servo04.write(i);
+        		  delay(10);
+		  	  }
+        }
+    	else if (currentAngle01 > servoAngle)		//Rotate the servomotore, as you go towards the object --
+        {
+          	for (int i = currentAngle01; i>= servoAngle; i--)
+            {
+            	  servo01.write(i);
+                servo02.write(i);
+                servo03.write(i);
+            	  servo04.write(i);
+                delay (10);
+            }
+        }
+    	  for(int i = 0; i < strip.numPixels(); i++)		//Cycle to control the color of the LED strip
+    	  {
+      		strip.setPixelColor(i, strip.Color(redValue, greenValue, 0));
+    	  }
+    	
+      strip.show();
+   	  }
+      else			// ciclo per la BLIND MODE
+  	  {
+          if (cm >= DEATH_ZONE)		
+          {
+              servo01.write(SERVO_MAX_ANGLE);
+              servo02.write(SERVO_MAX_ANGLE);
+              servo03.write(SERVO_MAX_ANGLE);
+              servo04.write(SERVO_MAX_ANGLE);
+          for(int i = 0; i < strip.numPixels(); i++)
+          {
+              strip.setPixelColor(i, strip.Color(0, 255, 0));
+          }
+              strip.show();    
+          }
+          else		//Command to testify the death of the hermit crab
+          {
+              servo01.write(SERVO_MAX_ANGLE);
+              servo02.write(SERVO_MAX_ANGLE);
+              servo03.write(SERVO_MAX_ANGLE);
+              servo04.write(SERVO_MAX_ANGLE);
+              for (int i = 0; i < 5; i++)
+              {
+                  for(int i = 0; i < strip.numPixels(); i++)
+              {
+              strip.setPixelColor(i, strip.Color(255, 0, 0));
+              }
+                  strip.show();
+                  delay(pauseDuration);
+                
+                  for(int i = 0; i < strip.numPixels(); i++)
+              {
+              strip.setPixelColor(i, strip.Color(0, 0, 0));
+              }
+                  strip.show();
+                  delay(pauseDuration);
+              }
+      }
+    }
+  }
+  delay (100);  
+}
+  
+
+
+long microsecondsToCentimeters(long microseconds) 
+{
+   return microseconds / 29 / 2;
+}
+
+
+
